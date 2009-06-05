@@ -15,7 +15,7 @@ has attributes => (
 
 has controller => (
     is       => 'rw',
-    isa      => 'Ark::Controller',
+    isa      => 'Ark::Controller | Str',
     required => 1,
 );
 
@@ -34,15 +34,18 @@ sub match {
 sub dispatch {
     my ($self, $context, @args) = @_;
 
-    my $req  = $context->request;
-    my $args = @{ $req->args } ? $req->args : $req->captures;
+    my $req = $context->request;
+
+    @args = @{ $req->args }
+        or @args = @{ $req->captures }
+            unless @args;
 
     # recreate controller instance if it is cached object
     unless (ref $self->{controller}) {
         $self->controller( $context->app->load_component($self->{controller}) );
     }
 
-    $context->execute( $self->controller, $self->name, @args || @$args );
+    $context->execute( $self->controller, $self->name, @args );
 }
 
 sub dispatch_chain {

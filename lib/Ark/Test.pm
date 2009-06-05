@@ -5,6 +5,9 @@ use HTTP::Request;
 use HTTP::Engine;
 use HTTP::Cookies;
 
+use FindBin;
+use Path::Class qw/dir/;
+
 sub import {
     my ($class, $app_class, @rest) = @_;
     my $caller = caller;
@@ -31,6 +34,7 @@ sub import {
 
                 if ($option{minimal_setup}) {
                     $app->setup_home;
+
                     $app->path_to('action.cache')->remove;
 
                     my $child = fork;
@@ -49,6 +53,7 @@ sub import {
                 else {
                     $app->setup;
                 }
+                $app->config->{home} ||= dir($FindBin::Bin);
             }
 
             if ($option{reuse_connection}) {

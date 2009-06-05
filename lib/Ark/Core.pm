@@ -241,6 +241,14 @@ sub setup_store {
     my $used_dispatch_types
         = [ grep { $_->used } @{ $self->dispatch_types } ];
 
+    # decompile regexp action because storable doen't recognize compiled regexp
+    my ($regex_type) = grep { $_->name eq 'Regex' } @{ $self->dispatch_types };
+    if ($regex_type->used) {
+        for my $compiled (@{ $regex_type->compiled }) {
+            $compiled->{re} = "$compiled->{re}";
+        }
+    }
+
     for my $namespace (keys %{ $self->actions }) { # TODO: clone this
         my $container = $self->actions->{$namespace};
         for my $name (keys %{ $container->actions }) {
@@ -303,18 +311,20 @@ sub setup_home {
     my $class = ref $self;
     (my $file = "${class}.pm") =~ s!::!/!g;
 
-    my $path = $INC{$file} or return;
-    $path =~ s/$file$//;
+    if (my $path = $INC{$file}) {
+        $path =~ s/$file$//;
 
-    $path = dir($path);
-    return unless -d $path;
+        $path = dir($path);
 
-    $path = $path->absolute;
-    while ($path->dir_list(-1) =~ /^b?lib$/) {
-        $path = $path->parent;
+        if (-d $path) {
+            $path = $path->absolute;
+            while ($path->dir_list(-1) =~ /^b?lib$/) {
+                $path = $path->parent;
+            }
+
+            $self->config->{home} = $path;
+        }
     }
-
-    $self->config->{home} = $path;
 }
 
 sub setup_plugin {
@@ -323,7 +333,12 @@ sub setup_plugin {
     $self->ensure_class_loaded($plugin);
 
     if (my $target_context = $plugin->plugin_context) {
-        push @{ $self->lazy_roles->{ $target_context } }, $plugin;
+        if ($target_context eq 'Core') {
+            $plugin->meta->apply( $self->meta );
+        }
+        else {
+            push @{ $self->lazy_roles->{ $target_context } }, $plugin;
+        }
         return;
     }
     $plugin->meta->apply( $self->context_class->meta );
@@ -342,12 +357,12 @@ sub setup_plugins {
 sub setup_default_plugins {
     my $self = shift;
 
-    my $filter_required  = 1;
+    my $encoding_filter_required  = 1;
     for my $role (@{ $self->context_class->meta->roles }) {
-        $filter_required = 0 if $role->name =~ /::Filter::/;
+        $encoding_filter_required = 0 if $role->name =~ /::Encoding::/;
     }
 
-    $self->setup_plugin('Ark::Plugin::Filter::Unicode') if $filter_required;
+    $self->setup_plugin('Ark::Plugin::Encoding::Unicode') if $encoding_filter_required;
 }
 
 sub setup_actions {
@@ -534,6 +549,9 @@ sub ensure_class_loaded {
 
 sub path_to {
     my ($self, @path) = @_;
+
+    die qq[Can't call path_to method before setup_home]
+        unless $self->config->{home};
 
     my $path = dir( $self->config->{home}, @path );
     return $path if -d $path;

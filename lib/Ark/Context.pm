@@ -36,7 +36,7 @@ has app => (
     required => 1,
     weak_ref => 1,
     handles  => ['debug', 'log', 'get_actions', 'get_action', 'ensure_class_loaded',
-                 'component', 'view', 'model', 'path_to', ],
+                 'component', 'view', 'model', 'path_to', 'config',],
 );
 
 has stash => (
@@ -84,6 +84,8 @@ sub prepare {
 
     $self->prepare_action;
     $self->prepare_encoding;
+    $self->prepare_headers;
+    $self->prepare_body;
 }
 
 sub prepare_action {
@@ -114,6 +116,10 @@ sub prepare_action {
     s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg
         for grep {defined} @{ $req->captures || [] };
 }
+
+sub prepare_headers {}
+
+sub prepare_body {}
 
 sub forward {
     my ($self, $target, @args) = @_;

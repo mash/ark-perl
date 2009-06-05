@@ -26,6 +26,11 @@ sub run {
     eval "use lib q[$libdir]";
     die $@ if $@;
 
+    my $extlib = $libdir->parent->subdir('extlib');
+    if (-d $extlib) {
+        eval "use lib q[$extlib]";
+    }
+
     my $app_name = $args[0];
     if ($app_name) {
         eval "use $app_name";
@@ -64,15 +69,17 @@ sub run {
     my $mw = HTTP::Engine::Middleware->new;
     $mw->install('HTTP::Engine::Middleware::Static' => {
         docroot => $app->path_to('root'),
-        regexp  => qr{\A/([^/]*\.[^/]*|(?:css|js|img|static)/.+)\z},
+        regexp => '/(?:(?:css|js|img|images?|swf|static|tmp|)/.*|[^/]+\.[^/]+)',
+#        regexp => qr!^/.*!,
+#        is_404_handler => 0, # this option requires HEM 0.14 or later
     });
 
     HTTP::Engine->new(
-        interface => {
+        interface  => {
             module => 'ServerSimple',
-            args => {
+            args   => {
                 host => $self->options->{address} || '0.0.0.0',
-                port => $self->options->{port} || 4423,
+                port => $self->options->{port}    || 4423,
             },
             request_handler => $mw->handler( $app->handler ),
         },
