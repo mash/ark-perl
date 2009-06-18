@@ -1,0 +1,1 @@
+before <?=r $self->include('include_target', 'foo', 'bar'); ?> after
