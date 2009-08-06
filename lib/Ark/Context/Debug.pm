@@ -181,9 +181,22 @@ after prepare_action => sub {
     my $self = shift;
     my $req  = $self->request;
 
+    if ( keys %{ $req->parameters } ) {
+        $self->ensure_class_loaded('Text::SimpleTable');
+        my $t = Text::SimpleTable->new( [ 35, 'Parameter' ], [ 36, 'Value' ] );
+        for my $key ( sort keys %{ $req->parameters } ) {
+            my $param = $req->parameters->{$key};
+            my $value = defined($param) ? $param : '';
+            $t->row( $key,
+                ref $value eq 'ARRAY' ? ( join ', ', @$value ) : $value );
+        }
+        my $message = $t->draw;
+        chomp $message;
+
+        $self->log( debug => "Query Parameters are:\n%s", $message );
+    }
     $self->log( debug => q/"%s" request for "%s" from "%s"/,
                 $req->method, $req->path, $req->address );
-    $self->log( debug => q/Arguments are "%s"/, join('/', @{ $req->arguments }) );
 };
 
 around execute_action => sub {
